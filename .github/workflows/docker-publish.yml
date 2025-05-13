@@ -1,59 +1,63 @@
-# Dockerfile per DESeq2 compatibile con l'ambiente HPC esistente
-# Base minimale con R 4.4.0 per essere compatibile con lo script rstudio-run esistente
+name: Docker
 
-FROM r-base:4.4.0
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
 
-LABEL maintainer="User <user@example.com>"
-LABEL description="Docker image with R 4.4.0 and DESeq2 for RNA-Seq analysis, compatibile con HPC"
+on:
+  schedule:
+    - cron: '43 15 * * *'
+  push:
+    branches: [ main ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
 
-# Installa le dipendenze di sistema necessarie
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libbz2-dev \
-    liblzma-dev \
-    libpcre3-dev \
-    libhdf5-dev \
-    zlib1g-dev \
-    libpng-dev \
-    libcairo2-dev \
-    libxt-dev \
-    libgit2-dev \
-    libglpk-dev \
-    libgfortran5 \
-    libreadline-dev \
-    libblas-dev \
-    liblapack-dev \
-    libopenblas-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
 
-# Installa BiocManager
-RUN R -e "install.packages('BiocManager', repos='https://cran.rstudio.com/')"
 
-# Installa DESeq2 e le sue dipendenze
-RUN R -e "BiocManager::install('DESeq2', dependencies=TRUE)"
+jobs:
+  build:
 
-# Installa pacchetti aggiuntivi utili per l'analisi RNA-Seq
-RUN R -e "BiocManager::install(c('apeglm', 'IHW', 'vsn', 'EnhancedVolcano', 'pheatmap', 'genefilter', 'RColorBrewer'))"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
-# Installa alcuni database di annotazione comuni
-RUN R -e "BiocManager::install(c('AnnotationDbi', 'org.Hs.eg.db', 'org.Mm.eg.db'))"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-# Installa pacchetti per la manipolazione dei dati e visualizzazione
-RUN R -e "install.packages(c('tidyverse', 'data.table', 'here', 'BiocParallel'), repos='https://cran.rstudio.com/')"
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-# Verifica che DESeq2 sia stato installato correttamente
-RUN R -e "library(DESeq2); cat('DESeq2 versione:', as.character(packageVersion('DESeq2')), '\n')"
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-# Crea directory per i dati
-RUN mkdir -p /data
-WORKDIR /data
-
-# Imposta variabili d'ambiente
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-
-# Comando predefinito quando si avvia il container (R interattivo)
-CMD ["R"]
+      # Build and push Docker image with Buildx (don't push on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
