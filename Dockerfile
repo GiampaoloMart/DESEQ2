@@ -1,5 +1,6 @@
 # Dockerfile per DESeq2 usando l'immagine Rocker, più stabile per l'ambiente R
-FROM rocker/r-ver:4.3.2
+# Use the official Rocker RStudio image as base
+FROM rocker/rstudio:latest
 
 LABEL org.opencontainers.image.description="Docker image with R and DESeq2 for RNA-Seq analysis"
 
