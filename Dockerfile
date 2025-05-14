@@ -1,7 +1,6 @@
 # Dockerfile per DESeq2 usando l'immagine Rocker, più stabile per l'ambiente R
 FROM rocker/r-ver:4.3.2
 
-LABEL org.opencontainers.image.authors="Giampaolo <your-email@example.com>"
 LABEL org.opencontainers.image.description="Docker image with R and DESeq2 for RNA-Seq analysis"
 
 # Imposta i repository APT non-interattivi
@@ -80,9 +79,8 @@ RUN R -e "install.packages(c(\
     'dplyr'), \
     repos='https://cran.rstudio.com/')"
 
-# Crea directory per i dati
-RUN mkdir -p /data
-WORKDIR /data
+# Espone la porta 8787 per l'accesso a RStudio Server
+EXPOSE 8787
 
-# Comando predefinito quando si avvia il container
-CMD ["R"]
+# Esegui RStudio come utente rstudio_user
+USER rstudio_user
